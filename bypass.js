@@ -46,17 +46,19 @@ async function startSpoofedSession() {
 
             const sender = msg.key.remoteJid
 
+            const media = msg.message.imageMessage || msg.message.videoMessage
             const viewOnceWrapper = msg.message.viewOnceMessageV2
                 || msg.message.viewOnceMessage
                 || msg.message.viewOnceMessageV2Extension
+            const isViewOnce = media?.viewOnce === true || !!viewOnceWrapper
 
-            if (viewOnceWrapper) {
-                const inner = viewOnceWrapper.message
+            if (isViewOnce) {
+                const inner = viewOnceWrapper?.message || msg.message
                 const mediaType = inner?.imageMessage ? 'image' : inner?.videoMessage ? 'video' : 'unknown'
                 const ext = mediaType === 'image' ? 'jpg' : mediaType === 'video' ? 'mp4' : 'bin'
 
                 console.log(`\n[VIEW ONCE] from ${sender} (${mediaType})`)
-                console.log('Payload:', JSON.stringify(viewOnceWrapper, null, 2))
+                console.log('Payload:', JSON.stringify(inner, null, 2))
 
                 try {
                     const buffer = await downloadMediaMessage(msg, 'buffer', {})
