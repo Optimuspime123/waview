@@ -144,7 +144,7 @@ async function startSpoofedSession() {
                 const inner = viewOnceWrapper?.message || msg.message
                 const mediaType = inner?.imageMessage ? 'image' : inner?.videoMessage ? 'video' : 'unknown'
                 const ext = mediaType === 'image' ? 'jpg' : mediaType === 'video' ? 'mp4' : 'bin'
-                const caption = inner?.imageMessage?.caption ?? inner?.videoMessage?.caption ?? media?.caption
+                const caption = inner?.imageMessage?.caption ?? inner?.videoMessage?.caption
 
                 console.log(`\n[VIEW ONCE] from ${sender} (${mediaType})`)
                 console.log('Payload:', JSON.stringify(inner, null, 2))
