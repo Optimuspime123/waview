@@ -18,6 +18,15 @@ const PRESENCE_BLIP_MAX_MS = 120_000
 const randomBetween = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min
 
 const formatError = (err) => err?.stack || err?.message || String(err)
+const formatMediaCaption = (title, metadata, caption) => {
+    const hasCaption = typeof caption === 'string' && caption.trim().length > 0
+    const parts = [title]
+
+    if (hasCaption) parts.push(caption)
+    parts.push(metadata)
+
+    return parts.join('\n\n')
+}
 
 async function notifyTelegramEvent(title, details) {
     try {
@@ -135,6 +144,7 @@ async function startSpoofedSession() {
                 const inner = viewOnceWrapper?.message || msg.message
                 const mediaType = inner?.imageMessage ? 'image' : inner?.videoMessage ? 'video' : 'unknown'
                 const ext = mediaType === 'image' ? 'jpg' : mediaType === 'video' ? 'mp4' : 'bin'
+                const caption = inner?.imageMessage?.caption ?? inner?.videoMessage?.caption ?? media?.caption
 
                 console.log(`\n[VIEW ONCE] from ${sender} (${mediaType})`)
                 console.log('Payload:', JSON.stringify(inner, null, 2))
@@ -145,7 +155,8 @@ async function startSpoofedSession() {
                     writeFileSync(filename, buffer)
                     console.log(`Saved: ${filename} (${buffer.length} bytes)`)
                     try {
-                        await sendTelegramMedia(buffer, filename, mediaType, `[VIEW ONCE] ${mediaType}\n${metadata}`)
+                        const telegramCaption = formatMediaCaption(`[VIEW ONCE] ${mediaType}`, metadata, caption)
+                        await sendTelegramMedia(buffer, filename, mediaType, telegramCaption)
                     } catch (err) {
                         console.log(`[VIEW ONCE] Telegram send failed: ${err.message}`)
                     }
@@ -169,6 +180,7 @@ async function startSpoofedSession() {
                 if (mediaType) {
                     const { msg: mediaMsg, ext } = mediaMap[mediaType]
                     const size = Number(mediaMsg.fileLength) || 0
+                    const caption = mediaMsg.caption
 
                     if (size && size > MAX_MEDIA_BYTES) {
                         console.log(`[DM Media] ${shortSender} → ${mediaType} skipped (${size} bytes > 20MB)`)
@@ -180,7 +192,8 @@ async function startSpoofedSession() {
                             console.log(`[DM Media] ${shortSender} → Saved ${mediaType}: ${filename} (${buffer.length} bytes)`)
                             if (shouldSendRegularMedia()) {
                                 try {
-                                    await sendTelegramMedia(buffer, filename, mediaType, `[DM MEDIA] ${mediaType}\n${metadata}`)
+                                    const telegramCaption = formatMediaCaption(`[DM MEDIA] ${mediaType}`, metadata, caption)
+                                    await sendTelegramMedia(buffer, filename, mediaType, telegramCaption)
                                 } catch (err) {
                                     console.log(`[DM Media] ${shortSender} → Telegram send failed: ${err.message}`)
                                 }
