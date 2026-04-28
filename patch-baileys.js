@@ -61,7 +61,7 @@ if (!src.includes('Platform.WEB')) {
     if (!src.includes("import crypto") && !src.includes("import { randomUUID }")) {
         src = `import crypto from 'crypto';\n` + src
     }
-    console.log('Patched getUserAgent: Platform.ANDROID, DeviceType.PHONE, device=husky')
+    console.log('Patched getUserAgent: Platform.ANDROID, DeviceType.PHONE, device=frankel')
 }
 
 // 2. Patch getWebInfo() — Android clients do NOT send webInfo at all
