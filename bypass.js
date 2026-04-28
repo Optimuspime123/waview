@@ -1,6 +1,7 @@
 import makeWASocket, { useMultiFileAuthState, DisconnectReason, downloadMediaMessage } from '@whiskeysockets/baileys'
 import pino from 'pino'
 import { writeFileSync, mkdirSync } from 'fs'
+import qrcode from 'qrcode-terminal'
 
 mkdirSync('./downloads', { recursive: true })
 
@@ -9,7 +10,6 @@ async function startSpoofedSession() {
 
     const sock = makeWASocket({
         auth: state,
-        printQRInTerminal: true,
         logger: pino({ level: 'silent' }),
         // THE BYPASS: Register as an Android companion device
         browser: ['Android', 'WhatsApp', '2.26.16.73'],
@@ -19,7 +19,14 @@ async function startSpoofedSession() {
     sock.ev.on('creds.update', saveCreds)
 
     sock.ev.on('connection.update', (update) => {
-        const { connection, lastDisconnect } = update
+        const { connection, lastDisconnect, qr } = update
+
+        if (qr) {
+            qrcode.generate(qr, { small: true }, (code) => {
+                console.log('\nScan this QR code with WhatsApp:\n')
+                console.log(code)
+            })
+        }
 
         if (connection === 'close') {
             const statusCode = lastDisconnect?.error?.output?.statusCode
