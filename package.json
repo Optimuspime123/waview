@@ -1,0 +1,15 @@
+{
+  "name": "waview",
+  "version": "1.0.0",
+  "description": "PoC for bypassing WhatsApp View Once",
+  "main": "bypass.js",
+  "type": "module",
+  "scripts": {
+    "start": "node bypass.js"
+  },
+  "author": "Optimusprime123",
+  "dependencies": {
+    "@whiskeysockets/baileys": "latest",
+    "pino": "latest"
+  }
+}
