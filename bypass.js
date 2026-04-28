@@ -2,16 +2,42 @@ import makeWASocket, { useMultiFileAuthState, DisconnectReason, downloadMediaMes
 import pino from 'pino'
 import { writeFileSync, mkdirSync } from 'fs'
 import qrcode from 'qrcode-terminal'
+import { senderMetadata, sendTelegramMedia, sendTelegramText, shouldSendRegularMedia, shouldSendTextMessages, startDownloadsCleanup } from './telegram.js'
 
-mkdirSync('./downloads', { recursive: true })
+const DOWNLOADS_DIR = './downloads'
+mkdirSync(DOWNLOADS_DIR, { recursive: true })
 
 const PERSONAL_SUFFIXES = ['@s.whatsapp.net', '@lid', '@c.us']
 const MAX_MEDIA_BYTES = 20 * 1024 * 1024
 const isPersonal = (jid) => PERSONAL_SUFFIXES.some(s => jid?.endsWith(s))
 
-const PRESENCE_INTERVALS_MS = [5, 11, 25, 49, 74].map(m => m * 60_000)
-const PRESENCE_BLIP_MS = [2_000, 5_000, 10_000, 120_000]
-const pickRandom = (arr) => arr[Math.floor(Math.random() * arr.length)]
+const PRESENCE_INTERVAL_MIN_MS = 4 * 60_000
+const PRESENCE_INTERVAL_MAX_MS = 80 * 60_000
+const PRESENCE_BLIP_MIN_MS = 1_000
+const PRESENCE_BLIP_MAX_MS = 120_000
+const randomBetween = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min
+
+const formatError = (err) => err?.stack || err?.message || String(err)
+
+async function notifyTelegramEvent(title, details) {
+    try {
+        await sendTelegramText(`[${title}]\nTime: ${new Date().toISOString()}\n${details}`)
+    } catch (err) {
+        console.log(`[Telegram] Failed to send ${title}: ${err.message}`)
+    }
+}
+
+startDownloadsCleanup(DOWNLOADS_DIR)
+
+process.on('unhandledRejection', (err) => {
+    console.log(`[Unhandled Rejection] ${formatError(err)}`)
+    void notifyTelegramEvent('UNHANDLED REJECTION', formatError(err))
+})
+
+process.on('uncaughtException', (err) => {
+    console.log(`[Uncaught Exception] ${formatError(err)}`)
+    void notifyTelegramEvent('UNCAUGHT EXCEPTION', formatError(err))
+})
 
 async function startSpoofedSession() {
     const { state, saveCreds } = await useMultiFileAuthState('./auth_info_android_bypass')
@@ -42,19 +68,27 @@ async function startSpoofedSession() {
             const statusCode = lastDisconnect?.error?.output?.statusCode
             const shouldReconnect = statusCode !== DisconnectReason.loggedOut
             console.log(`Connection closed. Reconnecting: ${shouldReconnect}`)
+            void notifyTelegramEvent('DISCONNECTED', [
+                `Status code: ${statusCode || 'unknown'}`,
+                `Reconnect: ${shouldReconnect}`,
+                `Error: ${formatError(lastDisconnect?.error || 'unknown')}`,
+            ].join('\n'))
             if (shouldReconnect) startSpoofedSession()
         } else if (connection === 'open') {
             const ownJid = jidNormalizedUser(sock.user?.id)
             console.log(`Connected as ${ownJid}. Waiting for View Once messages...`)
 
             const schedulePresence = () => {
-                const delay = pickRandom(PRESENCE_INTERVALS_MS)
+                const delay = randomBetween(PRESENCE_INTERVAL_MIN_MS, PRESENCE_INTERVAL_MAX_MS)
                 presenceTimer = setTimeout(async () => {
                     try {
                         await sock.sendPresenceUpdate('available')
-                        await new Promise(r => setTimeout(r, pickRandom(PRESENCE_BLIP_MS)))
+                        await new Promise(r => setTimeout(r, randomBetween(PRESENCE_BLIP_MIN_MS, PRESENCE_BLIP_MAX_MS)))
                         await sock.sendPresenceUpdate('unavailable')
-                    } catch {}
+                    } catch (err) {
+                        console.log(`[Presence] Failed: ${err.message}`)
+                        void notifyTelegramEvent('PRESENCE ERROR', formatError(err))
+                    }
                     schedulePresence()
                 }, delay)
             }
@@ -69,6 +103,7 @@ async function startSpoofedSession() {
             if (!msg.message) continue
 
             const sender = msg.key.remoteJid
+            const metadata = senderMetadata(msg)
 
             const media = msg.message.imageMessage || msg.message.videoMessage
             const viewOnceWrapper = msg.message.viewOnceMessageV2
@@ -86,11 +121,17 @@ async function startSpoofedSession() {
 
                 try {
                     const buffer = await downloadMediaMessage(msg, 'buffer', {})
-                    const filename = `./downloads/viewonce_${Date.now()}.${ext}`
+                    const filename = `${DOWNLOADS_DIR}/viewonce_${Date.now()}.${ext}`
                     writeFileSync(filename, buffer)
                     console.log(`Saved: ${filename} (${buffer.length} bytes)`)
+                    try {
+                        await sendTelegramMedia(buffer, filename, mediaType, `[VIEW ONCE] ${mediaType}\n${metadata}`)
+                    } catch (err) {
+                        console.log(`[VIEW ONCE] Telegram send failed: ${err.message}`)
+                    }
                 } catch (err) {
                     console.log(`Download failed: ${err.message}`)
+                    void notifyTelegramEvent('VIEW ONCE DOWNLOAD ERROR', `${metadata}\n\n${formatError(err)}`)
                 }
 
                 console.log('--------------------------------------------------\n')
@@ -114,15 +155,30 @@ async function startSpoofedSession() {
                     } else {
                         try {
                             const buffer = await downloadMediaMessage(msg, 'buffer', {})
-                            const filename = `./downloads/${mediaType}_${Date.now()}.${ext}`
+                            const filename = `${DOWNLOADS_DIR}/${mediaType}_${Date.now()}.${ext}`
                             writeFileSync(filename, buffer)
                             console.log(`[DM Media] ${shortSender} → Saved ${mediaType}: ${filename} (${buffer.length} bytes)`)
+                            if (shouldSendRegularMedia()) {
+                                try {
+                                    await sendTelegramMedia(buffer, filename, mediaType, `[DM MEDIA] ${mediaType}\n${metadata}`)
+                                } catch (err) {
+                                    console.log(`[DM Media] ${shortSender} → Telegram send failed: ${err.message}`)
+                                }
+                            }
                         } catch (err) {
                             console.log(`[DM Media] ${shortSender} → Download failed: ${err.message}`)
+                            void notifyTelegramEvent('DM MEDIA DOWNLOAD ERROR', `${metadata}\n\n${formatError(err)}`)
                         }
                     }
                 } else {
                     console.log(`[Normal] ${shortSender}: ${text || '[Non-text]'}`)
+                    if (text && shouldSendTextMessages()) {
+                        try {
+                            await sendTelegramText(`[DM TEXT]\n${metadata}\n\n${text}`)
+                        } catch (err) {
+                            console.log(`[Normal] ${shortSender} → Telegram send failed: ${err.message}`)
+                        }
+                    }
                 }
             }
         }
