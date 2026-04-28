@@ -28,6 +28,7 @@ const telegramConfig = {
     chatId: process.env.CHAT_ID,
     sendRegularMedia: process.env.SEND_REGULAR_MEDIA === 'true',
     sendTextMessages: process.env.SEND_TEXT_MESSAGES === 'true',
+    cleanDownloads: process.env.CLEAN_DOWNLOADS !== 'false',
 }
 
 const telegramEnabled = () => Boolean(telegramConfig.botToken && telegramConfig.chatId
@@ -39,6 +40,18 @@ const formatError = (err) => err?.stack || err?.message || String(err)
 
 export const shouldSendRegularMedia = () => telegramConfig.sendRegularMedia
 export const shouldSendTextMessages = () => telegramConfig.sendTextMessages
+
+export function telegramRuntimeConfig() {
+    const hasCredentials = telegramEnabled()
+
+    return {
+        hasCredentials,
+        sendViewOnce: hasCredentials,
+        sendRegularMedia: hasCredentials && telegramConfig.sendRegularMedia,
+        sendTextMessages: hasCredentials && telegramConfig.sendTextMessages,
+        cleanDownloads: telegramConfig.cleanDownloads,
+    }
+}
 
 export function senderMetadata(msg) {
     const remoteJid = msg.key.remoteJid
@@ -96,6 +109,11 @@ export async function sendTelegramMedia(buffer, filename, mediaType, caption) {
 }
 
 export function startDownloadsCleanup(downloadsDir) {
+    if (!telegramConfig.cleanDownloads) {
+        console.log('[Cleanup] Downloads cleanup disabled')
+        return
+    }
+
     const cleanup = async () => {
         try {
             mkdirSync(downloadsDir, { recursive: true })

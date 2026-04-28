@@ -2,7 +2,7 @@ import makeWASocket, { useMultiFileAuthState, DisconnectReason, downloadMediaMes
 import pino from 'pino'
 import { writeFileSync, mkdirSync } from 'fs'
 import qrcode from 'qrcode-terminal'
-import { senderMetadata, sendTelegramMedia, sendTelegramText, shouldSendRegularMedia, shouldSendTextMessages, startDownloadsCleanup } from './telegram.js'
+import { senderMetadata, sendTelegramMedia, sendTelegramText, shouldSendRegularMedia, shouldSendTextMessages, startDownloadsCleanup, telegramRuntimeConfig } from './telegram.js'
 
 const DOWNLOADS_DIR = './downloads'
 mkdirSync(DOWNLOADS_DIR, { recursive: true })
@@ -27,6 +27,26 @@ async function notifyTelegramEvent(title, details) {
     }
 }
 
+function printStartupConfig() {
+    const config = telegramRuntimeConfig()
+    const will = (enabled) => enabled ? 'will' : 'will not'
+    const credentials = config.hasCredentials ? 'present' : 'not present'
+    const credentialWarning = config.hasCredentials ? '' : ' (Telegram sends disabled)'
+
+    console.log([
+        '',
+        'waview started, checking for auth...',
+        '--------------------------------------',
+        `Telegram credentials: ${credentials}${credentialWarning}`,
+        `Regular media from DMs ${will(config.sendRegularMedia)} be sent to Telegram`,
+        `Text messages ${will(config.sendTextMessages)} be sent to Telegram`,
+        `View once messages ${will(config.sendViewOnce)} be sent to Telegram`,
+        `Downloads folder ${will(config.cleanDownloads)} be cleaned every 48 hours`,
+        '',
+    ].join('\n'))
+}
+
+printStartupConfig()
 startDownloadsCleanup(DOWNLOADS_DIR)
 
 process.on('unhandledRejection', (err) => {
