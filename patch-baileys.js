@@ -1,6 +1,6 @@
 /**
  * Post-install patch for @whiskeysockets/baileys
- * Spoofs UserAgent and companion device props to present as Android WhatsApp client.
+ * Spoofs UserAgent and companion device props to present as Android (Pixel 10) WhatsApp client.
  * Without this, the server identifies us as a web client and withholds view-once media.
  */
 import { readFileSync, writeFileSync } from 'fs'
@@ -39,11 +39,11 @@ const newUserAgent = `const getUserAgent = (config) => {
         },
         platform: proto.ClientPayload.UserAgent.Platform.ANDROID,
         releaseChannel: proto.ClientPayload.UserAgent.ReleaseChannel.RELEASE,
-        osVersion: '15',
+        osVersion: '16',
         manufacturer: 'Google',
-        device: 'husky',
-        osBuildNumber: 'AP4A.250205.002',
-        deviceBoard: 'shiba',
+        device: 'frankel', 
+        osBuildNumber: 'CP1A.260405.005',
+        deviceBoard: 'frankel',
         deviceType: proto.ClientPayload.UserAgent.DeviceType.PHONE,
         phoneId: crypto.randomUUID(),
         localeLanguageIso6391: 'en',
