@@ -57,7 +57,7 @@ Regular DM images, videos, and voice messages are also saved to `downloads/`; th
 
 DM text messages are sent to Telegram only when `SEND_TEXT_MESSAGES=true`.
 
-Telegram sends include basic sender metadata: name, sender JID, and time.
+Telegram sends include sender metadata: name, sender JID, time, and the sender's device type (best effor basis)
 
 Disconnects, presence errors, download errors, unhandled rejections, and uncaught exceptions are sent to Telegram when credentials are configured.
 

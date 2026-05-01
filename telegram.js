@@ -1,5 +1,6 @@
 import { existsSync, readdirSync, readFileSync, rmSync, mkdirSync } from 'fs'
 import { basename, join } from 'path'
+import { getDevice } from '@whiskeysockets/baileys'
 
 const DOWNLOADS_CLEANUP_INTERVAL_MS = 48 * 60 * 60 * 1000
 
@@ -38,6 +39,15 @@ const telegramEnabled = () => Boolean(telegramConfig.botToken && telegramConfig.
 const telegramUrl = (method) => `https://api.telegram.org/bot${telegramConfig.botToken}/${method}`
 const formatError = (err) => err?.stack || err?.message || String(err)
 
+function messageDevice(messageId) {
+    if (/^2A[0-9A-F]{18}$/i.test(messageId)) return 'ios-business'
+    return getDevice(messageId)
+}
+
+export function senderDevice(msg) {
+    return msg.key.id ? messageDevice(msg.key.id) : 'unknown'
+}
+
 export const shouldSendRegularMedia = () => telegramConfig.sendRegularMedia
 export const shouldSendTextMessages = () => telegramConfig.sendTextMessages
 
@@ -57,10 +67,12 @@ export function senderMetadata(msg) {
     const remoteJid = msg.key.remoteJid
     const senderJid = msg.key.participant || remoteJid
     const name = msg.pushName || msg.verifiedBizName || 'unknown'
+    const device = senderDevice(msg)
 
     return [
         `Name: ${name}`,
         `Sender JID: ${senderJid || 'unknown'}`,
+        `Device : ${device}`,
         `Time: ${new Date().toISOString()}`,
     ].join('\n')
 }
