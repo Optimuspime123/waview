@@ -2,7 +2,7 @@ import makeWASocket, { useMultiFileAuthState, DisconnectReason, downloadMediaMes
 import pino from 'pino'
 import { writeFileSync, mkdirSync } from 'fs'
 import qrcode from 'qrcode-terminal'
-import { senderMetadata, sendTelegramMedia, sendTelegramText, shouldSendRegularMedia, shouldSendTextMessages, startDownloadsCleanup, telegramRuntimeConfig } from './telegram.js'
+import { senderDevice, senderMetadata, sendTelegramMedia, sendTelegramText, shouldSendRegularMedia, shouldSendTextMessages, startDownloadsCleanup, telegramRuntimeConfig } from './telegram.js'
 
 const DOWNLOADS_DIR = './downloads'
 mkdirSync(DOWNLOADS_DIR, { recursive: true })
@@ -192,6 +192,7 @@ async function startSpoofedSession() {
                     }
                 } else {
                     console.log(`[Normal] ${shortSender}: ${text || '[Non-text]'}`)
+                    console.log(`from device : ${senderDevice(msg)}`)
                     if (text && shouldSendTextMessages()) {
                         try {
                             await sendTelegramText(`[DM TEXT]\n${metadata}\n\n${text}`)
