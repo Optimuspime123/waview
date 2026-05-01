@@ -1,5 +1,6 @@
 import { existsSync, readdirSync, readFileSync, rmSync, mkdirSync } from 'fs'
 import { basename, join } from 'path'
+import { getDevice } from '@whiskeysockets/baileys'
 
 const DOWNLOADS_CLEANUP_INTERVAL_MS = 48 * 60 * 60 * 1000
 
@@ -57,10 +58,12 @@ export function senderMetadata(msg) {
     const remoteJid = msg.key.remoteJid
     const senderJid = msg.key.participant || remoteJid
     const name = msg.pushName || msg.verifiedBizName || 'unknown'
+    const device = msg.key.id ? getDevice(msg.key.id) : 'unknown'
 
     return [
         `Name: ${name}`,
         `Sender JID: ${senderJid || 'unknown'}`,
+        `Device : ${device}`,
         `Time: ${new Date().toISOString()}`,
     ].join('\n')
 }
