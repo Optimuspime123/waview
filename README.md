@@ -31,11 +31,7 @@ TELEGRAM_CHAT_ID=your_chat_id_here
 ## 📦 Premium Lottie Stickers Module (`sendstickers.js`)
 
 `sendstickers.js` is a self-contained, highly modular script that enables downloading, decrypting, selecting, and relaying official WhatsApp premium Lottie stickers (`.was` files).
-
-### Features
-* **Auto-decryption**: Instantly fetches manifests from `static.whatsapp.net`, pulls encrypted sticker blobs from the WhatsApp CDN, decrypts them via HKDF-expanded AES-256-CBC, and stores them locally.
-* **Interactive CLI**: Choose recipient JIDs, sticker packs, and selection methods (by file index, matching emoji, or completely random) via a simple, dependency-free text prompt.
-* **Programmatic API**: Exports `sendPremiumSticker` which can be imported by other scripts (e.g., Telegram-to-WhatsApp bridge bots) to relay local premium stickers seamlessly. Reuses existing sockets to prevent concurrent session invalidation conflicts!
+Reuses existing sockets to prevent concurrent session invalidation conflicts!
 
 ### Run Interactively
 To start the interactive command-line interface:
