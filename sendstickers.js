@@ -5,11 +5,11 @@ import { createDecipheriv } from 'node:crypto'
 import { mkdirSync, writeFileSync, existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import readline from 'node:readline/promises'
+import AdmZip from 'adm-zip'
 
 // ── Pack Configurations ──────────────────────────────────────────────
-const PACKS = [
-  'PomPom', 'Flump', 'Biscuit', 'ImJustAGirl',
-  'Chip', 'Tuft', 'Springtime', 'Chomp',
+export const PACKS = [
+  'Flump', 'Chip', 'Tuft', 'PomPom', 'Chomp',
 ]
 
 const MANIFEST_URL = (id) =>
@@ -47,6 +47,27 @@ const decryptSticker = (encBuf, mediaKeyB64) => {
 }
 
 const sha256b64 = (buf) => createHash('sha256').update(buf).digest('base64')
+
+const extractAnimationNames = (wasPath) => {
+  const zip = new AdmZip(wasPath)
+  const preferredEntries = [
+    'animation/animation.json',
+    'animation/animation_secondary.json',
+  ]
+  const names = []
+
+  for (const entryName of preferredEntries) {
+    const entry = zip.getEntry(entryName)
+    if (!entry) continue
+
+    const animation = JSON.parse(entry.getData().toString('utf8'))
+    if (typeof animation.nm === 'string' && animation.nm.trim()) {
+      names.push(animation.nm.trim())
+    }
+  }
+
+  return [...new Set(names)]
+}
 
 /**
  * Automatically download and decrypt all standard packs if they are missing.
@@ -118,6 +139,58 @@ export async function ensurePacksDownloaded() {
     writeFileSync(indexPath, JSON.stringify(index, null, 2))
     console.log(`✅ Pack "${packId}" downloaded, decrypted, and indexed successfully!`)
   }
+}
+
+/**
+ * Return every locally available sticker and persist Lottie animation names in
+ * each pack index. Name extraction only happens once after a pack is downloaded.
+ */
+export async function getStickerCatalog() {
+  await ensurePacksDownloaded()
+  const catalog = []
+
+  for (const packId of PACKS) {
+    const dir = join(OUT, packId)
+    const indexPath = join(dir, 'index.json')
+    if (!existsSync(indexPath)) continue
+
+    const index = JSON.parse(readFileSync(indexPath, 'utf8'))
+    let changed = false
+
+    for (const sticker of index) {
+      // Some manifests contain legacy WebP stickers under a .was filename.
+      // They do not contain a Lottie document and cannot be sent as premium
+      // lottieStickerMessage payloads.
+      if (sticker.mimetype !== 'application/was') continue
+
+      const wasPath = join(dir, sticker.file)
+
+      if (!Array.isArray(sticker.names) || sticker.names.length === 0) {
+        try {
+          sticker.names = extractAnimationNames(wasPath)
+        } catch (err) {
+          console.log(`Could not extract animation name from "${wasPath}": ${err.message}`)
+          sticker.names = []
+        }
+        changed = true
+      }
+
+      if (sticker.names.length > 0) {
+        catalog.push({
+          ...sticker,
+          packId,
+          wasPath,
+          name: sticker.names[0],
+        })
+      }
+    }
+
+    if (changed) {
+      writeFileSync(indexPath, JSON.stringify(index, null, 2))
+    }
+  }
+
+  return catalog
 }
 
 /**
@@ -255,6 +328,7 @@ export async function sendPremiumSticker({
         const messageId = activeSock.generateMessageID ? activeSock.generateMessageID() : undefined
         await activeSock.relayMessage(jid, payload, { messageId })
         console.log('>>> Premium sticker sent successfully! <<<')
+        return { jid, filename: chosenFilename, messageId }
 
     } catch (err) {
         console.error('Failed to send premium sticker:', err)

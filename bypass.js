@@ -3,6 +3,7 @@ import pino from 'pino'
 import { writeFileSync, mkdirSync } from 'fs'
 import qrcode from 'qrcode-terminal'
 import { senderDevice, senderMetadata, sendTelegramMedia, sendTelegramText, shouldSendRegularMedia, shouldSendTextMessages, startDownloadsCleanup, telegramRuntimeConfig } from './telegram.js'
+import { startStickerBridge } from './sticker-bridge.js'
 
 const DOWNLOADS_DIR = './downloads'
 mkdirSync(DOWNLOADS_DIR, { recursive: true })
@@ -16,6 +17,7 @@ const PRESENCE_INTERVAL_MAX_MS = 80 * 60_000
 const PRESENCE_BLIP_MIN_MS = 1_000
 const PRESENCE_BLIP_MAX_MS = 120_000
 const randomBetween = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min
+let activeWhatsAppSocket = null
 
 const formatError = (err) => err?.stack || err?.message || String(err)
 const formatMediaCaption = (title, metadata, caption) => {
@@ -93,6 +95,7 @@ async function startSpoofedSession() {
         }
 
         if (connection === 'close') {
+            if (activeWhatsAppSocket === sock) activeWhatsAppSocket = null
             if (presenceTimer) { clearTimeout(presenceTimer); presenceTimer = null }
             const statusCode = lastDisconnect?.error?.output?.statusCode
             const shouldReconnect = statusCode !== DisconnectReason.loggedOut
@@ -104,6 +107,7 @@ async function startSpoofedSession() {
             ].join('\n'))
             if (shouldReconnect) startSpoofedSession()
         } else if (connection === 'open') {
+            activeWhatsAppSocket = sock
             const ownJid = jidNormalizedUser(sock.user?.id)
             console.log(`Connected as ${ownJid}. Waiting for View Once messages...`)
 
@@ -219,4 +223,5 @@ async function startSpoofedSession() {
     })
 }
 
+startStickerBridge(() => activeWhatsAppSocket)
 startSpoofedSession()

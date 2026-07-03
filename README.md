@@ -23,8 +23,15 @@ cp .env.example .env
 
 ```env
 TELEGRAM_BOT_TOKEN=your_telegram_bot_token_here
-TELEGRAM_CHAT_ID=your_chat_id_here
+CHAT_ID=your_chat_id_here
+SEND_REGULAR_MEDIA=true
+SEND_TEXT_MESSAGES=false
+CLEAN_DOWNLOADS=true
 ```
+
+`CHAT_ID` is both the destination for forwarded WhatsApp messages and the
+allowlist for inbound bot commands. Updates from every other Telegram chat are
+ignored.
 
 ---
 
@@ -61,6 +68,27 @@ npm start
 ```
 
 On first run, scan the QR code printed in the terminal with WhatsApp. Subsequent runs will attempt to use the saved authdata (unless whatsapp does something to it).
+
+## Telegram sticker bridge
+
+When `TELEGRAM_BOT_TOKEN` and `CHAT_ID` are configured, the process uses the raw
+Telegram Bot API long-polling endpoint. Send `/sticker` in the configured chat
+and use the inline keyboard to:
+
+1. Browse by emoji or pack, or request a random sticker.
+2. Choose or confirm the exact Lottie animation name extracted from the `.was`
+   archive.
+3. Reply with the WhatsApp recipient.
+
+Accepted recipients are international phone numbers and JIDs ending in
+`@s.whatsapp.net`, `@c.us`, `@lid`, or `@g.us`. Phone numbers are checked using
+WhatsApp account lookup, groups are checked against the connected account, and
+LIDs are syntax-checked because WhatsApp does not expose an equivalent public
+LID lookup.
+
+Use `/cancel` to discard an active selection. Selections expire after 15
+minutes. The bridge reuses the existing WhatsApp socket and refuses to start a
+send while WhatsApp is disconnected.
 
 ## Behavior
 
