@@ -1,9 +1,9 @@
 # waview
 
-PoC tool to save view-once (and other) media and optionally forward it to a configured telegram chat. Can also be used to see deleted messages/media.
+PoC tool to save view-once (and other) media and optionally forward it to a configured telegram chat. Can also be used to see deleted messages/media. And send whatsapp plus stickers without a subscription
 
 ## Disclaimer
-This is a demonstration intended for educational purposes only, and shows a possible vulnerability in Whatsapp's view once feature.
+This is a demonstration intended for educational purposes only, and shows possible vulnerability in Whatsapp's infra. 
 
 ## Setup
 
@@ -23,31 +23,48 @@ cp .env.example .env
 
 ```env
 TELEGRAM_BOT_TOKEN=your_telegram_bot_token_here
-CHAT_ID=your_chat_id_here
-SEND_REGULAR_MEDIA=true
-SEND_TEXT_MESSAGES=false
-CLEAN_DOWNLOADS=true
+TELEGRAM_CHAT_ID=your_chat_id_here
 ```
 
-## Configuration
+---
 
-`TELEGRAM_BOT_TOKEN` is the token from BotFather.
+## 📦 Premium Lottie Stickers Module (`sendstickers.js`)
 
-`CHAT_ID` is the Telegram chat ID where messages and media should be sent.
+`sendstickers.js` is a self-contained, highly modular script that enables downloading, decrypting, selecting, and relaying official WhatsApp premium Lottie stickers (`.was` files).
 
-`SEND_REGULAR_MEDIA=true` forwards regular DM media to Telegram. View-once media is always forwarded when Telegram credentials are configured.
+### Features
+* **Auto-decryption**: Instantly fetches manifests from `static.whatsapp.net`, pulls encrypted sticker blobs from the WhatsApp CDN, decrypts them via HKDF-expanded AES-256-CBC, and stores them locally.
+* **Interactive CLI**: Choose recipient JIDs, sticker packs, and selection methods (by file index, matching emoji, or completely random) via a simple, dependency-free text prompt.
+* **Programmatic API**: Exports `sendPremiumSticker` which can be imported by other scripts (e.g., Telegram-to-WhatsApp bridge bots) to relay local premium stickers seamlessly. Reuses existing sockets to prevent concurrent session invalidation conflicts!
 
-`SEND_TEXT_MESSAGES=true` forwards DM text messages to Telegram. Leave it `false` to skip text messages.
+### Run Interactively
+To start the interactive command-line interface:
+```bash
+node sendstickers.js
+```
 
-`CLEAN_DOWNLOADS=true` cleans the `downloads/` folder every 48 hours and sends a Telegram notification. Set it to `false` to disable cleanup.
+### Programmatic Usage
+```javascript
+import { sendPremiumSticker } from './sendstickers.js'
 
-## Run
+// Example: Relay an animated sticker using your active Baileys socket
+await sendPremiumSticker({
+    jid: 'recipient_jid@lid',
+    packId: 'PomPom',
+    emoji: '😎',
+    sock: myActiveSocket // Prevents credential collisions!
+})
+```
+
+---
+
+## Run (View-Once Bypass)
 
 ```bash
 npm start
 ```
 
-On first run, scan the QR code printed in the terminal with WhatsApp. Subsequent runs will attempt to use the saved authdata (unless whatsapp does something to it)
+On first run, scan the QR code printed in the terminal with WhatsApp. Subsequent runs will attempt to use the saved authdata (unless whatsapp does something to it).
 
 ## Behavior
 
@@ -57,7 +74,7 @@ Regular DM images, videos, and voice messages are also saved to `downloads/`; th
 
 DM text messages are sent to Telegram only when `SEND_TEXT_MESSAGES=true`.
 
-Telegram sends include sender metadata: name, sender JID, time, and the sender's device type (best effor basis)
+Telegram sends include sender metadata: name, sender JID, time, and the sender's device type (best effort basis).
 
 Disconnects, presence errors, download errors, unhandled rejections, and uncaught exceptions are sent to Telegram when credentials are configured.
 
