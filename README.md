@@ -2,6 +2,8 @@
 
 PoC tool to save view-once (and other) media and optionally forward it to a configured telegram chat. Can also be used to see deleted messages/media. And send whatsapp plus stickers without a subscription
 
+The Telegram bridge adds a `/sticker` command for sending premium WhatsApp stickers from the configured Telegram chat. Its inline menu lets you browse by pack or emoji, pick a random sticker, choose the recipient, and cancel an active selection with `/cancel`.
+
 ## Disclaimer
 This is a demonstration intended for educational purposes only, and shows possible vulnerability in Whatsapp's infra. 
 
